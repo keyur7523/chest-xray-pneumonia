@@ -1,0 +1,17 @@
+# Dataset (download from Kaggle, see README)
+data/
+
+# Environment
+venv/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+
+# Model weights and run outputs
+*.pt
+*.pth
+*.ckpt
+
+# macOS
+.DS_Store
+._*
