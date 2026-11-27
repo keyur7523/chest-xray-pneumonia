@@ -20,8 +20,12 @@ Classify pediatric chest X-rays as normal or pneumonia. The question: how much d
 
 - **Every model over-calls pneumonia on test.** Specificity falls from about 0.95 on val to 0.50–0.60: roughly 4 in 10 healthy children get flagged. This dataset's test set is known to differ from its train set.
 - **Fine-tuned is still the best.** Highest AUC (0.970 vs 0.936–0.943), the smallest drop from val (0.999 → 0.970), and no missed cases.
-- **ResNet from scratch is now the worst.** It tied SmallCNN on val, but it memorized the most (train loss 0.02), and that generalizes worst.
+- **ResNet from scratch dropped the most from val.** It tied SmallCNN on val (AUC 0.996), then fell to 0.936 on test. It also memorized the most (train loss 0.02).
 - **The val-chosen threshold didn't transfer.** At 0.247 the fine-tuned model catches no extra sick children (it already caught all 390 at 0.5) and flags 15 more healthy ones. A threshold tuned on one distribution doesn't carry over to a shifted one.
+
+![Grad-CAM on six val images](figures/gradcam_val.png)
+
+Where the fine-tuned model looks: strong evidence on the lungs, almost none on normals. Details in [Grad-CAM](#grad-cam).
 
 ## Data
 
@@ -33,6 +37,14 @@ unzip chest-xray-pneumonia.zip "chest_xray/train/*" "chest_xray/val/*" "chest_xr
 ```
 
 Images are not in this repo.
+
+## How to run
+
+```bash
+pip install -r requirements.txt
+```
+
+Download the data as above into `data/`, then run `chestxray.ipynb` top to bottom. It rebuilds the same train/val split (fixed seed, sorted file lists); the result is saved in `splits/` for reference. Trained on an NVIDIA GPU with CUDA 13; on another setup, install the torch build that matches your machine from [pytorch.org](https://pytorch.org/get-started/locally/).
 
 ## What's in the data
 
@@ -122,6 +134,10 @@ Shortcut checks:
 
 - **"R" markers: no sign the model uses them.** On normals with a visible "R" (138, 63), the marker gets no heat. The center crop also removes most markers and text: none was visible in 24 random cropped pneumonia images. Checked on a handful of images, so "no sign of", not "proven absent".
 - **Wires, tubes, electrodes: can't be ruled out.** Of four images with devices, three show their strongest heat on the lungs or only weak heat. In one (487), strong heat runs down the central chest right over the clips. A 7×7 map can't separate a device from the tissue under it, and sicker children have more lines.
+
+## What I'd do next
+
+- **Re-pick the threshold on data from the new hospital.** The val threshold didn't survive the move to test, so any new site needs its own small labeled sample to set the cut.
 
 ## Limitations
 
