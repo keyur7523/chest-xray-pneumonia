@@ -39,20 +39,28 @@ Four models, same data, same training loop, same metrics. Only the model changes
 | | SmallCNN | ResNet scratch | ResNet frozen | ResNet fine-tuned |
 |---|---|---|---|---|
 | Trainable params | 980k | 11.2M | 1,026 | 11.2M |
-| Recall | 0.982 | 0.979 | 0.965 | **0.984** |
-| Specificity | 0.949 | 0.944 | 0.921 | **0.977** |
-| Precision | 0.981 | 0.979 | 0.970 | **0.991** |
-| F1 | 0.981 | 0.979 | 0.967 | **0.988** |
-| ROC-AUC | 0.996 | 0.996 | 0.987 | **0.999** |
-| Missed (of 564 sick) | 10 | 12 | 20 | **9** |
-| False alarms (of 215 healthy) | 11 | 12 | 17 | **5** |
-| Best val loss | 0.078 | 0.077 | 0.149 | **0.039** |
+| Recall | 0.982 | 0.979 | 0.975 | **0.984** |
+| Specificity | 0.949 | 0.944 | 0.935 | **0.977** |
+| Precision | 0.981 | 0.979 | 0.975 | **0.991** |
+| F1 | 0.981 | 0.979 | 0.975 | **0.988** |
+| ROC-AUC | 0.996 | 0.996 | 0.994 | **0.999** |
+| Missed (of 564 sick) | 10 | 12 | 14 | **9** |
+| False alarms (of 215 healthy) | 11 | 12 | 14 | **5** |
+| Best val loss | 0.078 | 0.077 | 0.095 | **0.039** |
 
 What it says:
 
 - **Bigger alone doesn't help.** ResNet-18 from scratch has 11× the parameters of SmallCNN and scores the same. It just memorizes more: its train loss ends at 0.02, SmallCNN's at 0.05.
-- **Frozen ImageNet features are the worst.** Train loss never drops below 0.11. One linear layer on top of photo features can't fit X-rays.
-- **Fine-tuned ImageNet features are the best.** Half the false alarms of the others, and val loss halved. Pretraining helps, but only when the features are allowed to adapt.
+- **Frozen ImageNet features get surprisingly close.** Only 1,026 numbers are trained, a single linear layer on top of features learned from everyday photos, and it makes 28 errors against 21–24 for the models trained fully on X-rays.
+- **Fine-tuned ImageNet features are the best,** with 14 errors against 21–28, and half the val loss. One run on one split, so it's a small but clear edge, not a huge win. The test set will settle it.
+
+### The BatchNorm bug in the frozen model
+
+The first frozen run scored much worse (best val loss 0.149, 37 errors). The cause: the training loop calls `model.train()`, which puts BatchNorm layers in training mode. Their weights were locked, but their running averages kept updating toward X-ray statistics. So the "frozen" features changed every epoch, and the head was learning on a moving target.
+
+How to see it: a linear layer on fixed features should train smoothly, but train loss bounced (0.16, 0.24, 0.19, 0.24) and never went below 0.11. A direct check in the notebook: run 5 batches through a frozen model with no loss and no optimizer, so no weight can change. In train mode, the first BatchNorm layer's running mean still moves, by 0.144 on average. In eval mode it moves by exactly 0.
+
+The fix: put the frozen model back in `model.eval()` after `model.train()`. Eval mode still lets the head learn; it only stops BatchNorm from updating. The fix confirmed the cause: train loss now reaches 0.06, best val loss dropped from 0.149 to 0.095, and errors from 37 to 28.
 
 Training: SGD with momentum 0.9, batch 32, 15 epochs, lr dropped 10× after epoch 10. lr 0.01 for everything except fine-tuning, which uses 0.001 so the first updates don't wreck the pretrained weights. Each model keeps the weights from its epoch with the lowest val loss.
 
@@ -60,7 +68,7 @@ The lr drop mattered. For SmallCNN, val loss jumped between 0.086 and 0.27 befor
 
 The metrics are written from scratch and match sklearn to 4 decimals.
 
-Each row is one run. Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. An earlier fine-tuned run gave 3 false alarms instead of 5. So differences of a few images are noise; the gaps above between fine-tuned, frozen and the rest are not.
+Each row is one run. Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. An earlier fine-tuned run gave 3 false alarms instead of 5. So differences of a few images are noise. Fine-tuned's lead is bigger than that; the gaps among the other three are not.
 
 Take these with salt. Val is used to choose epochs, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
