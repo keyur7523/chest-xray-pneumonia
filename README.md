@@ -70,6 +70,19 @@ The metrics are written from scratch and match sklearn to 4 decimals.
 
 Each row is one run. Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. An earlier fine-tuned run gave 3 false alarms instead of 5. So differences of a few images are noise. Fine-tuned's lead is bigger than that; the gaps among the other three are not.
 
+### Choosing a threshold
+
+Missing a sick child costs more than a false alarm, so 0.5 isn't the right cut. For the fine-tuned model, the highest threshold that still catches 99% of pneumonia on val is 0.247:
+
+| Threshold | Missed (of 564) | False alarms (of 215) | Specificity |
+|---|---|---|---|
+| 0.5 | 9 | 5 | 0.977 |
+| 0.247 | 5 | 8 | 0.963 |
+
+4 fewer missed, 3 more false alarms. The threshold is picked on val, so its val numbers are optimistic. On test it's used unchanged.
+
+Class weights (normal ×2.9) didn't help: at 99% recall, 9 false alarms vs 8 without. Weighting mostly shifts the probabilities, which choosing the threshold already does.
+
 Take these with salt. Val is used to choose epochs, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
 ## To do
