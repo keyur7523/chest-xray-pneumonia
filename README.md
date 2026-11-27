@@ -87,20 +87,23 @@ Take these with salt. Val is used to choose epochs, so it's optimistic, and this
 
 ## Grad-CAM
 
-Where does the fine-tuned model look? Grad-CAM colors the parts of the image that pushed it toward "pneumonia" (red = most). Written from scratch with hooks on the last conv block. Six val images at threshold 0.247: two correct pneumonia, two correct normal, one miss, one false alarm.
+Where does the fine-tuned model look? Grad-CAM colors the parts of the image that pushed it toward "pneumonia" (red = most). Written from scratch with hooks on the last conv block. Each map is scaled to its own max, so the title also shows the raw max: how strong the evidence really is before scaling.
 
-![Grad-CAM on six val images](figures/gradcam_val.png)
+Six random val images (seeded) at threshold 0.247: two correct pneumonia, two correct normal, one miss, one false alarm.
 
-First look, six images only:
+![Grad-CAM on six random val images](figures/gradcam_val.png)
 
-- On the two confident pneumonia cases, the heat is on the chest and lung fields. Not on the "R" markers.
-- On the two confident normals, there's almost no heat, as expected. The red spot in one corner is probably noise: each map is scaled to its own max, so a near-empty map gets its tiny peak stretched to full red.
-- On the miss (P = 0.23), the heat is on the image edge and chest wall, not the lungs.
+- **Strong evidence sits on the lungs.** The confident pneumonia case (P = 1.00) has the strongest map (raw max 0.183), on the lung fields.
+- **Weak evidence drifts to the edges.** The normals, the miss and the false alarm have maps 3–9× weaker (0.020–0.070), and their heat lands on corners, edges or below the lungs. Scaling stretches that weak signal to full red, so it looks more important than it is. Both mistakes are in this group.
 
-Six images can't settle whether the model uses shortcuts. Next: all misses and false alarms, and a number for how much heat falls on the image border.
+Shortcut checks:
+
+![Grad-CAM on images with markers and devices](figures/gradcam_devices.png)
+
+- **"R" markers: no sign the model uses them.** On normals with a visible "R" (138, 63), the heat isn't on the marker. The center crop also removes most markers and text: none was visible in 24 random cropped pneumonia images.
+- **Wires, tubes, electrodes: can't be ruled out.** In 2 of 4 images with devices (306, 615), the strongest heat is on the lungs. In the other 2 (487, 249), it overlaps the clips and tubes. A 7×7 map can't separate a device from the tissue under it. Sicker children have more lines, so this is a real risk.
 
 ## To do
 
-- Grad-CAM on all misses and false alarms, and border heat as a number
 - Test set, once
 - Limitations
