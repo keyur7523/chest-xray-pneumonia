@@ -29,23 +29,26 @@ Images are not in this repo.
 
 ## Results (val)
 
-SmallCNN, trained from scratch: 5 blocks of conv, batch norm, ReLU and max-pool, then global average pooling and one linear layer. 980k parameters. SGD (lr 0.01, momentum 0.9), batch 32, 10 epochs.
+SmallCNN, trained from scratch: 5 blocks of conv, batch norm, ReLU and max-pool, then global average pooling and one linear layer. 980k parameters. SGD (momentum 0.9), batch 32, 15 epochs. lr 0.01, dropped to 0.001 after epoch 10. The weights kept are from the epoch with the lowest val loss.
 
 | Metric | Value | In plain words |
 |---|---|---|
-| Recall | 0.980 | missed 11 of 564 sick children |
-| Specificity | 0.935 | wrongly flagged 14 of 215 healthy children |
-| Precision | 0.975 | |
-| F1 | 0.978 | |
-| ROC-AUC | 0.995 | |
+| Recall | 0.982 | missed 10 of 564 sick children |
+| Specificity | 0.949 | wrongly flagged 11 of 215 healthy children |
+| Precision | 0.981 | |
+| F1 | 0.981 | |
+| ROC-AUC | 0.996 | |
 
 The metrics are written from scratch and match sklearn to 4 decimals.
+
+The lr drop mattered. Before it, val loss jumped between 0.09 and 0.42 from epoch to epoch. After it, it stayed between 0.078 and 0.083.
+
+Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. So small differences between models (around 0.002 AUC) are noise.
 
 Take these with salt. Val is used to choose models, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
 ## To do
 
-- lr drop, and keep the best checkpoint
 - ResNet-18: from scratch, frozen, fine-tuned
 - Grad-CAM
 - Test set, once
