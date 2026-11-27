@@ -79,14 +79,28 @@ Missing a sick child costs more than a false alarm, so 0.5 isn't the right cut. 
 | 0.5 | 9 | 5 | 0.977 |
 | 0.247 | 5 | 8 | 0.963 |
 
-4 fewer missed, 3 more false alarms. The threshold is picked on val, so its val numbers are optimistic. On test it's used unchanged.
+4 fewer missed, 3 more false alarms. The threshold is picked on val, so its val numbers are optimistic. It also rests on just 5 misses, so one image more or less moves it a lot. On test it's used unchanged.
 
 Class weights (normal ×2.9) didn't help: at 99% recall, 9 false alarms vs 8 without. Weighting mostly shifts the probabilities, which choosing the threshold already does.
 
 Take these with salt. Val is used to choose epochs, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
+## Grad-CAM
+
+Where does the fine-tuned model look? Grad-CAM colors the parts of the image that pushed it toward "pneumonia" (red = most). Written from scratch with hooks on the last conv block. Six val images at threshold 0.247: two correct pneumonia, two correct normal, one miss, one false alarm.
+
+![Grad-CAM on six val images](figures/gradcam_val.png)
+
+First look, six images only:
+
+- On the two confident pneumonia cases, the heat is on the chest and lung fields. Not on the "R" markers.
+- On the two confident normals, there's almost no heat, as expected. The red spot in one corner is probably noise: each map is scaled to its own max, so a near-empty map gets its tiny peak stretched to full red.
+- On the miss (P = 0.23), the heat is on the image edge and chest wall, not the lungs.
+
+Six images can't settle whether the model uses shortcuts. Next: all misses and false alarms, and a number for how much heat falls on the image border.
+
 ## To do
 
-- Grad-CAM
+- Grad-CAM on all misses and false alarms, and border heat as a number
 - Test set, once
 - Limitations
