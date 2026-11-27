@@ -4,6 +4,25 @@ Classify pediatric chest X-rays as normal or pneumonia. The question: how much d
 
 **Not for clinical use.** A learning project on a public dataset.
 
+## Results (test set, used once)
+
+624 untouched test images (390 pneumonia, 234 normal). Every number below was computed once; nothing was changed after seeing them.
+
+| | SmallCNN | ResNet scratch | ResNet frozen | ResNet fine-tuned | Fine-tuned @ 0.247 |
+|---|---|---|---|---|---|
+| Recall | 0.990 | 0.995 | 0.995 | **1.000** | **1.000** |
+| Specificity | **0.598** | 0.496 | 0.543 | **0.598** | 0.534 |
+| Precision | 0.804 | 0.767 | 0.784 | **0.806** | 0.782 |
+| F1 | 0.887 | 0.866 | 0.877 | **0.892** | 0.877 |
+| ROC-AUC | 0.942 | 0.936 | 0.943 | **0.970** | **0.970** |
+| Missed (of 390 sick) | 4 | 2 | 2 | **0** | **0** |
+| False alarms (of 234 healthy) | **94** | 118 | 107 | **94** | 109 |
+
+- **Every model over-calls pneumonia on test.** Specificity falls from about 0.95 on val to 0.50–0.60: roughly 4 in 10 healthy children get flagged. This dataset's test set is known to differ from its train set.
+- **Fine-tuned is still the best.** Highest AUC (0.970 vs 0.936–0.943), the smallest drop from val (0.999 → 0.970), and no missed cases.
+- **ResNet from scratch is now the worst.** It tied SmallCNN on val, but it memorized the most (train loss 0.02), and that generalizes worst.
+- **The val-chosen threshold didn't transfer.** At 0.247 the fine-tuned model catches no extra sick children (it already caught all 390 at 0.5) and flags 15 more healthy ones. A threshold tuned on one distribution doesn't carry over to a shifted one.
+
 ## Data
 
 [Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) on Kaggle. Only the top-level `chest_xray/` folders are used.
@@ -87,23 +106,29 @@ Take these with salt. Val is used to choose epochs, so it's optimistic, and this
 
 ## Grad-CAM
 
-Where does the fine-tuned model look? Grad-CAM colors the parts of the image that pushed it toward "pneumonia" (red = most). Written from scratch with hooks on the last conv block. Each map is scaled to its own max, so the title also shows the raw max: how strong the evidence really is before scaling.
+Where does the fine-tuned model look? Grad-CAM colors the parts of the image that pushed it toward "pneumonia". Written from scratch with hooks on the last conv block. All panels share one color scale, so weak evidence looks weak and strong evidence looks strong. Each title shows the raw max.
 
 Six random val images (seeded) at threshold 0.247: two correct pneumonia, two correct normal, one miss, one false alarm.
 
 ![Grad-CAM on six random val images](figures/gradcam_val.png)
 
-- **Strong evidence sits on the lungs.** The confident pneumonia case (P = 1.00) has the strongest map (raw max 0.183), on the lung fields.
-- **Weak evidence drifts to the edges.** The normals, the miss and the false alarm have maps 3–9× weaker (0.020–0.070), and their heat lands on corners, edges or below the lungs. Scaling stretches that weak signal to full red, so it looks more important than it is. Both mistakes are in this group.
+- **Strong evidence sits on the lungs and central chest.** The confident pneumonia case (raw max 0.183) is the only one with real color.
+- **Normals and both mistakes are nearly blank** (0.020–0.070). Drawn on their own scale, these maps had red patches in the corners. On the shared scale they vanish: that was weak signal stretched to full red.
+- Not every correct call has a clear map: one pneumonia image (P = 0.84) is nearly blank too.
 
 Shortcut checks:
 
 ![Grad-CAM on images with markers and devices](figures/gradcam_devices.png)
 
-- **"R" markers: no sign the model uses them.** On normals with a visible "R" (138, 63), the heat isn't on the marker. The center crop also removes most markers and text: none was visible in 24 random cropped pneumonia images.
-- **Wires, tubes, electrodes: can't be ruled out.** In 2 of 4 images with devices (306, 615), the strongest heat is on the lungs. In the other 2 (487, 249), it overlaps the clips and tubes. A 7×7 map can't separate a device from the tissue under it. Sicker children have more lines, so this is a real risk.
+- **"R" markers: no sign the model uses them.** On normals with a visible "R" (138, 63), the marker gets no heat. The center crop also removes most markers and text: none was visible in 24 random cropped pneumonia images. Checked on a handful of images, so "no sign of", not "proven absent".
+- **Wires, tubes, electrodes: can't be ruled out.** Of four images with devices, three show their strongest heat on the lungs or only weak heat. In one (487), strong heat runs down the central chest right over the clips. A 7×7 map can't separate a device from the tissue under it, and sicker children have more lines.
 
-## To do
+## Limitations
 
-- Test set, once
-- Limitations
+- **One source.** All images come from one hospital, children aged 1–5. Nothing here says how it does on adults or other hospitals.
+- **Distribution shift.** The test set behaves differently from train and val (specificity 0.95 → 0.50–0.60). Val numbers overstate real performance.
+- **Shortcuts in the data.** Normal and pneumonia images differ in size, shape and sharpness. Cropping removes the shape difference, but sharpness can't be removed. Devices may still be a cue.
+- **Threshold.** 0.247 was chosen on val from just 5 misses, and it didn't hold on test.
+- **One seed, one split.** Each model was trained once. Differences of a few images are noise.
+- **Grad-CAM is coarse** (7×7) and was checked on about a dozen images.
+- **Not for clinical use.**
