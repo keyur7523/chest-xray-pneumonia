@@ -29,27 +29,43 @@ Images are not in this repo.
 
 ## Results (val)
 
-SmallCNN, trained from scratch: 5 blocks of conv, batch norm, ReLU and max-pool, then global average pooling and one linear layer. 980k parameters. SGD (momentum 0.9), batch 32, 15 epochs. lr 0.01, dropped to 0.001 after epoch 10. The weights kept are from the epoch with the lowest val loss.
+Four models, same data, same training loop, same metrics. Only the model changes.
 
-| Metric | Value | In plain words |
-|---|---|---|
-| Recall | 0.982 | missed 10 of 564 sick children |
-| Specificity | 0.949 | wrongly flagged 11 of 215 healthy children |
-| Precision | 0.981 | |
-| F1 | 0.981 | |
-| ROC-AUC | 0.996 | |
+- **SmallCNN:** 5 blocks of conv, batch norm, ReLU and max-pool, then global average pooling and one linear layer. Random start.
+- **ResNet-18 scratch:** the standard ResNet-18, random start.
+- **ResNet-18 frozen:** ImageNet weights, locked. Only a new 2-class head trains.
+- **ResNet-18 fine-tuned:** ImageNet weights, everything trains.
+
+| | SmallCNN | ResNet scratch | ResNet frozen | ResNet fine-tuned |
+|---|---|---|---|---|
+| Trainable params | 980k | 11.2M | 1,026 | 11.2M |
+| Recall | 0.982 | 0.979 | 0.965 | **0.984** |
+| Specificity | 0.949 | 0.944 | 0.921 | **0.977** |
+| Precision | 0.981 | 0.979 | 0.970 | **0.991** |
+| F1 | 0.981 | 0.979 | 0.967 | **0.988** |
+| ROC-AUC | 0.996 | 0.996 | 0.987 | **0.999** |
+| Missed (of 564 sick) | 10 | 12 | 20 | **9** |
+| False alarms (of 215 healthy) | 11 | 12 | 17 | **5** |
+| Best val loss | 0.078 | 0.077 | 0.149 | **0.039** |
+
+What it says:
+
+- **Bigger alone doesn't help.** ResNet-18 from scratch has 11× the parameters of SmallCNN and scores the same. It just memorizes more: its train loss ends at 0.02, SmallCNN's at 0.05.
+- **Frozen ImageNet features are the worst.** Train loss never drops below 0.11. One linear layer on top of photo features can't fit X-rays.
+- **Fine-tuned ImageNet features are the best.** Half the false alarms of the others, and val loss halved. Pretraining helps, but only when the features are allowed to adapt.
+
+Training: SGD with momentum 0.9, batch 32, 15 epochs, lr dropped 10× after epoch 10. lr 0.01 for everything except fine-tuning, which uses 0.001 so the first updates don't wreck the pretrained weights. Each model keeps the weights from its epoch with the lowest val loss.
+
+The lr drop mattered. For SmallCNN, val loss jumped between 0.086 and 0.27 before it and stayed between 0.078 and 0.083 after it.
 
 The metrics are written from scratch and match sklearn to 4 decimals.
 
-The lr drop mattered. Before it, val loss jumped between 0.086 and 0.27 from epoch to epoch. After it, it stayed between 0.078 and 0.083.
+Each row is one run. Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. An earlier fine-tuned run gave 3 false alarms instead of 5. So differences of a few images are noise; the gaps above between fine-tuned, frozen and the rest are not.
 
-Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. So small differences between models (around 0.002 AUC) are noise.
-
-Take these with salt. Val is used to choose models, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
+Take these with salt. Val is used to choose epochs, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
 ## To do
 
-- ResNet-18: from scratch, frozen, fine-tuned
 - Grad-CAM
 - Test set, once
 - Limitations
