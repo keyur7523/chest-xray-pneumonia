@@ -41,7 +41,7 @@ SmallCNN, trained from scratch: 5 blocks of conv, batch norm, ReLU and max-pool,
 
 The metrics are written from scratch and match sklearn to 4 decimals.
 
-The lr drop mattered. Before it, val loss jumped between 0.09 and 0.42 from epoch to epoch. After it, it stayed between 0.078 and 0.083.
+The lr drop mattered. Before it, val loss jumped between 0.086 and 0.27 from epoch to epoch. After it, it stayed between 0.078 and 0.083.
 
 Two runs with the same seed don't give identical curves: some GPU convolution algorithms add numbers in a slightly different order each time. So small differences between models (around 0.002 AUC) are noise.
 
