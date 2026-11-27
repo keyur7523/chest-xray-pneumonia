@@ -4,6 +4,8 @@ Classify pediatric chest X-rays as normal or pneumonia. The question: how much d
 
 **Not for clinical use.** A learning project on a public dataset.
 
+Run it yourself on Kaggle: [notebook](https://www.kaggle.com/code/keyurpawaskar75/keyur7523-xray-pneumonia). Expect numbers a few images off from the ones below: GPU runs aren't bit-identical.
+
 ## Results (test set, used once)
 
 624 untouched test images (390 pneumonia, 234 normal). Every number below was computed once; nothing was changed after seeing them.
