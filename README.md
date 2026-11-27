@@ -1,43 +1,52 @@
-# Pneumonia detection from pediatric chest X-rays
+# chest-xray-pneumonia
 
-A from-scratch CNN vs a frozen and a fine-tuned ImageNet ResNet, with data-shortcut checks and Grad-CAM.
+Classify pediatric chest X-rays as normal or pneumonia. The question: how much does ImageNet pretraining help on a small medical dataset, and is the model looking at the lungs or at shortcuts?
 
-> **Not for clinical use.** This is a learning project on a public dataset.
-
-## Question
-
-How much does ImageNet pretraining help on a small medical-imaging dataset, and is the model looking at the lungs or at shortcuts in the data?
+**Not for clinical use.** A learning project on a public dataset.
 
 ## Data
 
-[Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) on Kaggle. Use the top-level `chest_xray/{train,val,test}` folders.
+[Chest X-Ray Images (Pneumonia)](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia) on Kaggle. Only the top-level `chest_xray/` folders are used.
 
 ```bash
 kaggle datasets download paultimothymooney/chest-xray-pneumonia
 unzip chest-xray-pneumonia.zip "chest_xray/train/*" "chest_xray/val/*" "chest_xray/test/*" -d data/
 ```
 
-The images are not included in this repo.
+Images are not in this repo.
 
-## Data findings
+## What's in the data
 
-- **Counts and imbalance.** Train has 1,341 normal and 3,875 pneumonia images, test 234 and 390, and the official val only 8 and 8. That is about 74% pneumonia, so a model that always says "pneumonia" already scores 74% accuracy. Results are reported as recall, precision and ROC-AUC, not accuracy alone.
-- **Image size and shape differ by class, a possible shortcut.** Across all train images, normal scans have a median size of 1640×1328 and a mean aspect ratio of 1.23; pneumonia scans 1168×776 and 1.51. Across the whole dataset, 283 pneumonia images are RGB while every normal image is grayscale. Squashing everything straight to 224×224 would distort the two classes differently, so every image will be converted to one mode and center-cropped to a square before resizing. The difference in sharpness from the original resolution can't be removed and is listed under Limitations.
-- **R markers and burned-in text.** Many images carry an "R" side marker in different sizes and positions, and some pneumonia images in the sample grid show printed scanner settings and a study ID. A model could learn these instead of the lungs, which is why Grad-CAM is used to check where it looks. These were seen in samples, not counted across the dataset.
-- **The split is by patient, not by image.** The 3,883 train and val pneumonia images come from 1,642 children (one has 30 images). The official val set has only 16 images, so train and val were pooled and re-split 85/15 with whole patients on one side, giving 4,453 train and 779 val images with no shared patients (`splits/`). Pneumonia patients come from the `personNNN` file-name prefix. Normal names have no patient ID, so the `IM-NNNN` prefix is assumed to identify one study.
+- **74% pneumonia.** Always guessing "pneumonia" scores 74% accuracy, so accuracy alone means little. I report recall, specificity, precision, F1 and ROC-AUC.
+- **The classes differ in ways that aren't the disease.** Normal scans are bigger (median 1640×1328 vs 1168×776) and squarer (aspect ratio 1.23 vs 1.51). 283 pneumonia images are RGB; every normal one is grayscale. A model could learn these instead of the lungs. So every image is converted to RGB, resized so its short side is 224, then center-cropped to 224×224. Nothing gets stretched. Sharpness still differs, and that can't be removed.
+- **Some images have burned-in text:** "R" markers, scanner settings, study IDs. Seen in samples, not counted. Grad-CAM will check where the model looks.
+- **One child can have many X-rays,** up to 30. Splitting by image would put the same chest in train and val. So I pooled the official train and val (the official val has only 16 images) and split 85/15 by patient: 4,453 train, 779 val, zero shared patients. Saved in `splits/`. Pneumonia patients come from the `personNNN` prefix. Normal files have no patient ID, so I assume the `IM-NNNN` prefix is one study.
 
-## Models
+## Pipeline
 
-_To be written._
+- Transforms: resize short side to 224, center-crop 224, normalize with ImageNet mean/std. Training adds a random rotation of up to 10°. No horizontal flip: a flipped chest puts the heart on the wrong side.
+- Loading takes 7 s per epoch with 4 workers, so it isn't the bottleneck.
 
-## Results
+## Results (val)
 
-_To be written._
+SmallCNN, trained from scratch: 5 blocks of conv, batch norm, ReLU and max-pool, then global average pooling and one linear layer. 980k parameters. SGD (lr 0.01, momentum 0.9), batch 32, 10 epochs.
 
-## Grad-CAM
+| Metric | Value | In plain words |
+|---|---|---|
+| Recall | 0.980 | missed 11 of 564 sick children |
+| Specificity | 0.935 | wrongly flagged 14 of 215 healthy children |
+| Precision | 0.975 | |
+| F1 | 0.978 | |
+| ROC-AUC | 0.995 | |
 
-_To be written._
+The metrics are written from scratch and match sklearn to 4 decimals.
 
-## Limitations
+Take these with salt. Val is used to choose models, so it's optimistic, and this dataset's test set is known to be harder. The test set gets used once, at the end.
 
-_To be written._
+## To do
+
+- lr drop, and keep the best checkpoint
+- ResNet-18: from scratch, frozen, fine-tuned
+- Grad-CAM
+- Test set, once
+- Limitations
